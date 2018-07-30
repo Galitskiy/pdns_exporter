@@ -14,8 +14,7 @@ FPM_IMAGE='prometheus-pdns-exporter-golang-deb-builder'
 BUILD_ARTIFACTS_DIR='deb-package'
 
 BINARY_NAME='prometheus-pdns-exporter'
-version=`git rev-parse --short HEAD`
-VERSION_STRING="$(cat VERSION)-${version}"
+VERSION_STRING="$(cat VERSION)-1"
 
 
 # check all the required environment variables are supplied
