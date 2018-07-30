@@ -1,45 +1,53 @@
+# https://github.com/amitsaha/golang-packaging-demo
+# Binary paths which we will use for:
+# 1. Running the commands
+# 2. As Makefile targets to automatically install them
+GOPATH := $(shell go env GOPATH)
+GODEP_BIN := $(GOPATH)/bin/dep
+GOLINT_BIN := $(GOPATH)/bin/golint
 
-COVERDIR = .coverage
-TOOLDIR = tools
+version := $(shell cat VERSION)-$(shell git rev-parse --short HEAD)
 
-GO_SRC := $(shell find . -name '*.go' ! -path '*/vendor/*' ! -path 'tools/*' )
-GO_DIRS := $(shell find . -type d -name '*.go' ! -path '*/vendor/*' ! -path 'tools/*' )
-GO_PKGS := $(shell go list ./... | grep -v '/vendor/')
+packages = $$(go list ./... | egrep -v '/vendor/')
+files = $$(find . -name '*.go' | egrep -v '/vendor/')
 
-BINARY = $(shell basename $(shell pwd))
-VERSION ?= $(shell git describe --dirty)
+BINARY_NAME = 'prometheus-pdns-exporter'
 
-CONCURRENT_LINTERS ?= $(shell cat /proc/cpuinfo | grep processor | wc -l)
-LINTER_DEADLINE ?= 30s
+.phony: all
+all: lint vet test build build-deb
 
-export PATH := $(TOOLDIR)/bin:$(PATH)
-SHELL := env PATH=$(PATH) /bin/bash
+$(GODEP_BIN):
+	go get -u github.com/golang/dep/cmd/dep
 
-all: style lint test $(BINARY).x86_64
+gopkg.toml: $(GODEP_BIN)
+	$(GODEP_BIN) init
 
-$(BINARY).x86_64: $(GO_SRC)
-	CGO_ENABLED=0 go build -a -ldflags "-extldflags '-static' -X main.Version=$(VERSION)" -o $(BINARY).x86_64 .
+version:
+	@ echo $(VERSION)
 
-binary: $(BINARY).x86_64
+build:          ## Build the binary
+build: vendor
+	go build -o $(BINARY_NAME) -ldflags "-X main.Version=$(version)" 
 
-style: tools
-	gometalinter --disable-all --enable=gofmt --vendor
+build-deb:      ## Build DEB package (needs other tools)
+	exec ./build-deb-docker.sh
+	
+test: vendor
+	go test -race $(packages)
 
-lint: tools
-	@echo Using $(CONCURRENT_LINTERS) processes
-	gometalinter -j $(CONCURRENT_LINTERS) --deadline=$(LINTER_DEADLINE) --disable=gotype $(GO_DIRS)
+vet:            ## Run go vet
+vet: vendor
+	go tool vet -printfuncs=Debug,Debugf,Debugln,Info,Infof,Infoln,Error,Errorf,Errorln $(files)
 
-fmt: tools
-	gofmt -s -w $(GO_SRC)
+$(GOLINT_BIN):
+	go get -u golang.org/x/lint/golint
 
-test: tools
-	@mkdir -p $(COVERDIR)
-	for pkg in $(GO_PKGS) ; do \
-		go test -v -covermode count -coverprofile=$(COVERDIR)/$(echo $$pkg | tr '/' '-').out $(pkg) || exit 1 ; \
-	done
-	gocovmerge $(shell find $(COVERDIR) -name '*.out') > cover.out
+lint:           ## Run go lint
+lint: vendor $(GOLINT_BIN)
+	$(GOLINT_BIN) -set_exit_status $(packages)
 
-tools:
-	$(MAKE) -C $(TOOLDIR)
+clean:
+	rm -f $(BINARY_NAME) 
 
-.PHONY: tools style fmt test binary all
+help:           ## Show this help
+	@fgrep -h "##" $(MAKEFILE_LIST) | fgrep -v fgrep | sed -e 's/\\$$//' | sed -e 's/##//'

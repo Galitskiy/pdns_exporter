@@ -1,0 +1,15 @@
+[Unit]
+Description=Prometheus exporter for PowerDNS metrics
+Documentation=https://github.com/Galitskiy/pdns_exporter
+
+[Service]
+Restart=always
+User=pdns
+EnvironmentFile=/etc/default/prometheus-pdns-exporter
+ExecStart=/usr/bin/prometheus-pdns-exporter $ARGS
+ExecReload=/bin/kill -HUP $MAINPID
+TimeoutStopSec=20s
+SendSIGKILL=no
+
+[Install]
+WantedBy=multi-user.target

@@ -60,3 +60,17 @@ The process also needs to run as the same user as pdns itself, otherwise control
 socket replies won't work. The `-collector.powerdns.local-socket.mode` option
 can help in this regard by altering the permissions on the launched process to
 be looser. The default is `640`.
+
+# Build DEB package in Docker
+
+With default variables:
+```bash
+$ make build-deb
+```
+
+With defined variables:
+```bash
+$ make build-deb PKG_VENDOR='Pkg Vendor Name' PKG_MAINTAINER='Pkg Maintainer' PKG_URL='http://example.com/no-uri-given'
+```
+
+After build, package will be in `deb-package` local dir.
